@@ -1,0 +1,36 @@
+apiVersion: skaffold/v2beta12
+kind: Config
+metadata:
+  name: argo-calrissian
+build:
+  artifacts:
+  - image: stageout
+    context: stage-out
+    docker:
+      dockerfile: Dockerfile
+  - image: validateschema
+    context: validate-schema
+    docker:
+      dockerfile: Dockerfile
+deploy:
+  helm:
+    releases:
+      - name: argo-cwl-runner
+        chartPath: argo-cwl-runner
+        namespace: ns1
+        valuesFiles:
+          - argo-cwl-runner/values.yaml
+        setValueTemplates:
+          stageOutImage: "{{.IMAGE_NAME_stageout}}:{{.IMAGE_TAG_stageout}}"
+        setFiles: {
+          userSettings: ./argo-cwl-runner/files/user-settings.json
+        }
+      - name: argo-water-bodies
+        chartPath: argo-water-bodies
+        namespace: ns1
+        valuesFiles:
+          - argo-water-bodies/values.yaml
+        setFiles: {
+          appPackage: ./argo-water-bodies/files/app-package.json,
+          inputSchema: ./argo-water-bodies/files/input-parameters-schema.json
+        }

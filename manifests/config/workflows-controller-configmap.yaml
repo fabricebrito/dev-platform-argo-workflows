@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: workflow-controller-configmap
+  namespace: ns1
+data:
+  artifactRepository: |
+    archiveLogs: true
+    s3:
+      bucket: workflows
+      endpoint: minio:9000
+      insecure: true
+      accessKeySecret:
+        name: my-minio-cred
+        key: accesskey
+      secretKeySecret:
+        name: my-minio-cred
+        key: secretkey
+  workflowDefaults: |
+    spec:
+      serviceAccountName: argo
+      podGC:
+        # Pod GC strategy must be one of the following:
+        # * OnPodCompletion - delete pods immediately when pod is completed (including errors/failures)
+        # * OnPodSuccess - delete pods immediately when pod is successful
+        # * OnWorkflowCompletion - delete pods when workflow is completed
+        # * OnWorkflowSuccess - delete pods when workflow is successful
+        # Default: do not delete pods
+        strategy: OnWorkflowCompletion
+        # The duration before pods in the GC queue get deleted. Defaults to 5s
+        # Requires Argo >= 3.5
+        deleteDelayDuration: 120s
+  # persistence: |
+  #   connectionPool:
+  #     maxIdleConns: 100
+  #     maxOpenConns: 0
+  #     connMaxLifetime: 0s
+  #   nodeStatusOffLoad: true
+  #   archive: true
+  #   archiveTTL: 7d
+  #   postgresql:
+  #     host: argo-postgresql
+  #     port: 5432
+  #     database: postgres
+  #     tableName: argo_workflows
+  #     userNameSecret:
+  #       name: argo-postgres-config
+  #       key: username
+  #     passwordSecret:
+  #       name: argo-postgres-config
+  #       key: password

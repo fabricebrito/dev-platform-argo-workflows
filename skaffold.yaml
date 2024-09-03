@@ -1,0 +1,44 @@
+apiVersion: skaffold/v4beta9
+kind: Config
+metadata:
+  name: argo-workflows-events-v2
+manifests:
+  rawYaml:
+  - manifests/crds/argo-workflows-crds.yaml
+  - manifests/crds/argo-events-crds.yaml
+  - manifests/namespaced/argo-workflows-namespaced.yaml
+  - manifests/namespaced/argo-events-namespaced.yaml
+  - manifests/config/workflows-controller-configmap.yaml
+  - manifests/token/secret.yaml
+  - manifests/namespaced/patch-role.yaml
+  - manifests/minio/minio.yaml
+deploy:
+  kubectl: 
+    flags:
+      global: # additional flags passed on every command.
+      - --namespace=ns1
+    hooks:
+      after:
+        - host:
+            command: ["sh", "-c", "./wait-for-it.sh"]
+            os: [darwin, linux]
+        - host:
+            command: ["sh", "-c", "./get_token.sh"]
+            os: [darwin, linux]
+portForward:
+- resourceType: service
+  resourceName: argo-server
+  namespace: ns1
+  port: 2746
+  localPort: 2746
+- resourceType: service
+  resourceName: minio
+  namespace: ns1 
+  port: 9000 
+  localPort: 9000 
+- resourceType: service
+  resourceName: minio
+  namespace: ns1 
+  port: 9001 
+  localPort: 9001
+
