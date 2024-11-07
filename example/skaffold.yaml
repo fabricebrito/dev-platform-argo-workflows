@@ -34,3 +34,5 @@ deploy:
           appPackage: ./argo-water-bodies/files/app-package.json,
           inputSchema: ./argo-water-bodies/files/input-parameters-schema.json
         }
+        setValues: 
+          storageClassRWX: "standard"
