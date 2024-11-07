@@ -169,7 +169,6 @@ spec:
                   command:
                   - calrissian
                   args:
-                  - --debug
                   - --pod-serviceaccount
                   - argo
                   - --stdout
