@@ -13,7 +13,6 @@ from pystac import read_file
 from pystac.stac_io import DefaultStacIO, StacIO
 from pystac.item_collection import ItemCollection
 
-
 logger.remove()
 logger.add(sys.stderr, level="INFO")
 
@@ -76,7 +75,7 @@ item_collection = ItemCollection(items=collection.get_all_items())
 
 logger.info("Created feature collection from items")
 
-# save the feature collection to a file /tmp/output 
+# save the feature collection to a file /tmp/output
 with open("/tmp/output", "w") as f:
     f.write(json.dumps(item_collection.to_dict(), indent=2))
 logger.info("Saved feature collection to /tmp/output")

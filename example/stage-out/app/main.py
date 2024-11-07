@@ -1,4 +1,5 @@
 """ Main module for the application. """
+
 import os
 import shutil
 
@@ -13,11 +14,14 @@ from datetime import datetime
 import sys
 from app.stac import CustomStacIO, upload_file_with_chunk_size
 from app.usersettings import UserSettings
+from pystac.extensions.item_assets import ItemAssetsExtension, AssetDefinition
 
-# TODO add collection as done here: https://github.com/EOEPCA/eoepca-proc-service-template/blob/feature/python3.8/tests/assets/stageout.yaml
+
 @click.command()
 @click.option(
-    "--stac-catalog", help="Local path to a folder containing catalog.json STAC Catalog", required=True
+    "--stac-catalog",
+    help="Local path to a folder containing catalog.json STAC Catalog",
+    required=True,
 )
 @click.option("--user-settings", help="S3 user settings", required=True)
 @click.option("--bucket", "bucket", help="S3 bucket", required=True)
@@ -51,29 +55,29 @@ def main(stac_catalog, user_settings, bucket, subfolder):
     collection_id = subfolder
     date = datetime.now().strftime("%Y-%m-%d")
 
-    dates = [datetime.strptime(
-        f"{date}T00:00:00", "%Y-%m-%dT%H:%M:%S"
-    ), datetime.strptime(f"{date}T23:59:59", "%Y-%m-%dT%H:%M:%S")]
+    dates = [
+        datetime.strptime(f"{date}T00:00:00", "%Y-%m-%dT%H:%M:%S"),
+        datetime.strptime(f"{date}T23:59:59", "%Y-%m-%dT%H:%M:%S"),
+    ]
 
     collection = pystac.Collection(
-    id=collection_id,
-    description="description",
-    extent=pystac.Extent(
-        spatial=pystac.SpatialExtent([[-180, -90, 180, 90]]), 
-        temporal=pystac.TemporalExtent(intervals=[[min(dates), max(dates)]])
-    ),
-    title="Processing results",
-    href=f"s3://{bucket}/{subfolder}/collection.json",
-    stac_extensions=[],
-    keywords=["eoepca"],
-    license="proprietary",
+        id=collection_id,
+        description="description",
+        extent=pystac.Extent(
+            spatial=pystac.SpatialExtent([[-180, -90, 180, 90]]),
+            temporal=pystac.TemporalExtent(intervals=[[min(dates), max(dates)]]),
+        ),
+        title="Processing results",
+        href=f"s3://{bucket}/{subfolder}/collection.json",
+        stac_extensions=[],
+        keywords=["eoepca"],
+        license="proprietary",
     )
-
 
     for item in cat.get_items():
 
         item.set_collection(collection)
-              
+
         collection.add_item(item)
 
         for key, asset in item.get_assets().items():
@@ -83,12 +87,9 @@ def main(stac_catalog, user_settings, bucket, subfolder):
             logger.info(f"upload {asset.href} to s3://{bucket}/{s3_path}")
 
             upload_file_with_chunk_size(
-                client,
-                asset.get_absolute_href(),
-                bucket,
-                s3_path
-                )
-            
+                client, asset.get_absolute_href(), bucket, s3_path
+            )
+
             asset.href = f"s3://{bucket}/{s3_path}"
             item.add_asset(key, asset)
 
@@ -96,10 +97,35 @@ def main(stac_catalog, user_settings, bucket, subfolder):
             if link.rel in ["root"]:
                 item.links.pop(index)
 
-    collection.update_extent_from_items() 
+    collection.update_extent_from_items()
+
+    # Access the item-assets extension
+    item_assets_ext = ItemAssetsExtension.ext(collection, add_if_missing=True)
+    if ItemAssetsExtension.get_schema_uri() not in collection.stac_extensions:
+        collection.stac_extensions.append(ItemAssetsExtension.get_schema_uri())
+
+    item_assets = {}
+    for item in collection.get_items():
+        # Loop over the assets in the item and create AssetDefinitions for each
+        for asset_key, asset in item.assets.items():
+            # Create AssetDefinition from existing asset properties
+            # remove the statistics and histogram from the extra fields (raster extension)
+            asset.extra_fields["raster:bands"][0].pop("statistics")
+            asset.extra_fields["raster:bands"][0].pop("histogram")
+            asset_definition = AssetDefinition.create(
+                title=asset.title,
+                description=asset.description,
+                media_type=asset.media_type,
+                roles=asset.roles,
+                extra_fields=asset.extra_fields,
+            )
+            # Add the asset definition to the collection's item assets
+            item_assets[asset_key] = asset_definition
+
+    item_assets_ext.item_assets = item_assets
 
     cat.clear_items()
-    
+
     cat.add_child(collection)
 
     cat.normalize_hrefs(f"s3://{bucket}/{subfolder}")
@@ -109,11 +135,11 @@ def main(stac_catalog, user_settings, bucket, subfolder):
             if link.rel in ["root"]:
                 item.links.pop(index)
         # upload item to S3
-        print(f"upload {item.id} to s3://{bucket}/{subfolder}", file=sys.stderr)
+        logger.info(f"upload {item.id} to s3://{bucket}/{subfolder}")
         pystac.write_file(item, item.get_self_href())
 
     # upload collection to S3
-    logger.info(f"upload collection.json to s3://{bucket}/{subfolder}", file=sys.stderr)
+    logger.info(f"upload collection.json to s3://{bucket}/{subfolder}")
     for index, link in enumerate(collection.links):
         if link.rel in ["root"]:
             collection.links.pop(index)
@@ -126,9 +152,10 @@ def main(stac_catalog, user_settings, bucket, subfolder):
             cat.links.pop(index)
     pystac.write_file(cat, cat.get_self_href())
 
-    
     logger.info("Done!")
 
     print(f"s3://{bucket}/{subfolder}/catalog.json", file=sys.stdout)
+
+
 if __name__ == "__main__":
     main()
