@@ -45,9 +45,17 @@ spec:
     inputs:
       parameters:
       - name: parameters
+        description: "Parameters in JSON format"
       - name: cwl
+        description: "CWL document in JSON format"
       - name: max_ram
+        description: "Max RAM (e.g. 8G)"
+        default: "8G"
       - name: max_cores
+        description: "Max cores (e.g. 4)"
+        default: "4"
+      - name: entry_point
+        description: "CWL document entry_point"
     outputs:
       parameters:
         - name: results
@@ -90,6 +98,8 @@ spec:
           template: calrissian-tmpl
           arguments:
             parameters:
+            - name: entry_point
+              value: {{ `"{{inputs.parameters.entry_point}}"` }}
             - name: max_ram
               value: {{ `"{{inputs.parameters.max_ram}}"` }}
             - name: max_cores
@@ -198,7 +208,7 @@ spec:
                   - /calrissian/results/
                   - --tool-logs-basepath 
                   - /calrissian/logs
-                  - "/calrissian/cwl.json"
+                  - "/calrissian/cwl.json#{{ `{{inputs.parameters.entry_point}}` }}"
                   - "/calrissian/input.json"
                   env:
                     - name: CALRISSIAN_POD_NAME
@@ -234,6 +244,7 @@ spec:
       parameters:
       - name: max_ram
       - name: max_cores
+      - name: entry_point
     outputs:
       parameters: []
       artifacts:
