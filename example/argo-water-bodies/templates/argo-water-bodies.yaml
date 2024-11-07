@@ -90,6 +90,10 @@ spec:
             valueFrom: 
               expression: "steps['argo-cwl'].outputs.parameters['stac-catalog']"
             description: "STAC catalog with the detected water bodies and published on S3"
+          - name: feature-collection
+            valueFrom: 
+              expression: "steps['argo-cwl'].outputs.parameters['feature-collection']"
+            description: "Feature collection with the detected water bodies"
         artifacts:
           - name: tool-logs
             fromExpression: "steps['argo-cwl'].outputs.artifacts['tool-logs']"

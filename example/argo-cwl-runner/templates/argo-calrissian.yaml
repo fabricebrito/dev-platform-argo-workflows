@@ -62,6 +62,9 @@ spec:
         - name: stac-catalog
           valueFrom:
             parameter: {{ `"{{steps.stage-out.outputs.parameters.stac-catalog}}"` }}
+        - name: feature-collection
+          valueFrom:
+            parameter: {{ `"{{steps.feature-collection.outputs.parameters.feature-collection}}"` }}
       artifacts:
         - name: tool-logs
           from: {{ `"{{steps.get-results.outputs.artifacts.tool-logs}}"` }}
@@ -115,6 +118,14 @@ spec:
               value: "results"
             - name: folder
               value: {{ `"{{workflow.name}}-{{workflow.uid}}"` }}
+        
+      - - name: feature-collection
+          template: feature-collection
+          arguments:
+            parameters:
+            - name: stac-catalog
+              value: {{ `"{{steps.stage-out.outputs.parameters.stac-catalog}}"` }}
+            
     
   - name: cwl-prepare
     # this steps prepares the CWL inputs
@@ -321,3 +332,24 @@ spec:
         echo "s3://{{"{{inputs.parameters.bucket}}"}}/{{"{{inputs.parameters.folder}}"}}/catalog.json" > /tmp/output
 
         exit $res
+
+  - name: feature-collection
+    inputs: 
+      parameters:
+      - name: stac-catalog
+    outputs:
+      parameters:
+        - name: feature-collection
+          valueFrom:
+            path: /tmp/output
+    script:
+      image: {{ .Values.stageOutImage }}
+      resources:
+        requests:
+          memory: 1Gi
+          cpu: 1
+      volumeMounts: []
+      command: [python]
+      source: |
+        {{ required "A valid .Values.featureCollectionScript entry required!" ( tpl ( .Values.featureCollectionScript | default ( .Files.Get "files/feature_collection.py")) . | nindent 8 ) }}
+
