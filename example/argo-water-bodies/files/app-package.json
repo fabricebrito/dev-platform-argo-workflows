@@ -3,14 +3,14 @@
   "$namespaces": {
     "s": "https://schema.org/"
   },
-  "s:softwareVersion": "1.0.0",
+  "s:softwareVersion": "1.1.0",
   "schemas": [
     "http://schema.org/version/9.0/schemaorg-current-http.rdf"
   ],
   "$graph": [
     {
       "class": "Workflow",
-      "id": "main",
+      "id": "water-bodies",
       "label": "Water bodies detection based on NDWI and otsu threshold",
       "doc": "Water bodies detection based on NDWI and otsu threshold applied to Sentinel-2 COG STAC items",
       "requirements": [
@@ -181,7 +181,7 @@
       },
       "hints": {
         "DockerRequirement": {
-          "dockerPull": "ghcr.io/eoap/mastering-app-package/crop@sha256:61c2f37b3a1bd56a3eddd0f4224c72de665d42957d3325dd0397845cff198dab"
+          "dockerPull": "ghcr.io/eoap/mastering-app-package/crop@sha256:5c623e05fc6cb228848f4ebd89de229be28dc89b36f046ba58fbf3a18af0ae06"
         }
       },
       "baseCommand": [
@@ -243,7 +243,7 @@
       },
       "hints": {
         "DockerRequirement": {
-          "dockerPull": "ghcr.io/eoap/mastering-app-package/norm_diff@sha256:641ab55968d7f500b641969d0a7422c4c9a80dd5cc1459ee07f3e0c5ee4fa230"
+          "dockerPull": "ghcr.io/eoap/mastering-app-package/norm_diff@sha256:305f940cb1e86ed6c5491291fc7e7dd55eb42ee7e120c4ca7abf3b3ec99a393d"
         }
       },
       "baseCommand": [
@@ -287,7 +287,7 @@
       },
       "hints": {
         "DockerRequirement": {
-          "dockerPull": "ghcr.io/eoap/mastering-app-package/otsu@sha256:ec02baf6a007ebb5a2dc037af2da8ef94db67bb8a6139682ad61041f9d27c779"
+          "dockerPull": "ghcr.io/eoap/mastering-app-package/otsu@sha256:5f991d281130971bd3a03aead8ed107cc2a9415bfb5ae84c00607829517bcd84"
         }
       },
       "baseCommand": [
@@ -331,7 +331,7 @@
       },
       "hints": {
         "DockerRequirement": {
-          "dockerPull": "ghcr.io/eoap/mastering-app-package/stac@sha256:8ad7e7d6999c0c4c91c2b19ce231f24734d2af8f41b855ef9a06276d23345601"
+          "dockerPull": "ghcr.io/eoap/mastering-app-package/stac@sha256:ae88fe9dfcdf4927095b940b4fbf2c03e273b6014d755a5b59c25e238ecfe172"
         }
       },
       "baseCommand": [
