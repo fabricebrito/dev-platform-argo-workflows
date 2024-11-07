@@ -66,22 +66,30 @@ spec:
       inputs:
         parameters:
         - name: items
+          description: "JSON array of STAC items to process"
         - name: aoi
+          description: "Area of interest expressed as a bounding box 'minx,miny,maxx,maxy'"
         - name: epsg
+          description: "EPSG code of the bounding box coordinates"
+          default: "EPSG:4326"
       outputs:
         parameters:
           - name: results
             valueFrom: 
               expression: "steps['argo-cwl'].outputs.parameters['results']"
+            description: "JSON array results produced by the CWL execution"
           - name: log
             valueFrom: 
               expression: "steps['argo-cwl'].outputs.parameters['log']"
+            description: "Log produced by the CWL execution"
           - name: usage-report
             valueFrom: 
               expression: "steps['argo-cwl'].outputs.parameters['usage-report']"
+            description: "Usage report produced by the CWL execution"
           - name: stac-catalog
             valueFrom: 
               expression: "steps['argo-cwl'].outputs.parameters['stac-catalog']"
+            description: "STAC catalog with the detected water bodies and published on S3"
         artifacts:
           - name: tool-logs
             fromExpression: "steps['argo-cwl'].outputs.artifacts['tool-logs']"
