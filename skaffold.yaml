@@ -12,7 +12,25 @@ manifests:
   - manifests/token/secret.yaml
   - manifests/namespaced/patch-role.yaml
   - manifests/minio/minio.yaml
+  - manifests/metrics.yaml
+  - manifests/priorities.yaml
 deploy:
+  helm:
+    
+    releases:
+      - name: argo-prometheus
+        repo: https://prometheus-community.github.io/helm-charts/
+        remoteChart: kube-prometheus-stack # prometheus
+        namespace: argo-prometheus
+        createNamespace: true
+        wait: true
+        setValues:
+          crds:
+            enabled: true
+          prometheus:
+            prometheusSpec:
+              serviceMonitorSelectorNilUsesHelmValues: false
+            
   kubectl: 
     flags:
       global: # additional flags passed on every command.
@@ -41,4 +59,20 @@ portForward:
   namespace: ns1 
   port: 9001 
   localPort: 9001
+- resourceType: service
+  resourceName: workflow-controller-metrics
+  namespace: ns1
+  port: 9090 # Target port on the pod
+  localPort: 9091 # Local port on your machine
+- resourceType: service
+  resourceName: argo-prometheus-kube-prome-prometheus
+  namespace: argo-prometheus # Optional, if you are using a specific namespace
+  port: 9090 # Target port on the pod
+  localPort: 9090 # Local port on your machine
+- resourceType: service
+  resourceName: argo-prometheus-grafana
+  namespace: argo-prometheus # Optional, if you are using a specific namespace
+  port: 80 # Target port on the pod
+  localPort: 3000 # Local port on your machine
+      
 
