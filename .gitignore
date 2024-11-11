@@ -1,0 +1,4 @@
+*.tar.gz
+*.tgz
+.env_api
+*.log
