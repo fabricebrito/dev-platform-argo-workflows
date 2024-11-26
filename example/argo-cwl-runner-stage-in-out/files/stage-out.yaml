@@ -32,7 +32,7 @@ arguments:
   - $( inputs.sub_path )
 requirements:
   DockerRequirement:
-    dockerPull: docker.io/library/stageout:3a4c1c65838a30ab1b9e877e021eca31060967a889c85cf7e87b098ff2c28ad0
+    dockerPull: ghcr.io/eoap/mastering-app-package/stage:1.1.0
   InlineJavascriptRequirement: {}
   EnvVarRequirement:
     envDef:
