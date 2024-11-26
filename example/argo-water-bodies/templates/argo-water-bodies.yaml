@@ -11,6 +11,54 @@ metadata:
     eoap.ogc.org/abstract: "Water bodies detection based on NDWI and otsu threshold applied to Sentinel-2 COG STAC items"
     eoap.ogc.org/schema: "app-package-input-schema-water-bodies-1-0-0/input-schema.json"
     eoap.ogc.org/app-package: "app-package-water-bodies-1-0-0/app-package.json"
+    eoap.ogc.org/inputs: |
+      [
+        {
+            "aoi":{
+              "doc":"area of interest as a bounding box",
+              "label":"area of interest",
+              "type":"string"
+            },
+            "epsg":{
+              "doc":"EPSG code",
+              "label":"EPSG code",
+              "type":"string",
+              "default":"EPSG:4326"
+            },
+            "bands":{
+              "doc":"bands used for the NDWI",
+              "label":"bands used for the NDWI",
+              "type":"string[]"
+            },
+            "item":{
+              "doc":"STAC item",
+              "label":"STAC item",
+              "type":"string"
+            }
+        }
+      ]
+      
+    eoap.ogc.org/metadata: |
+      {
+        "$namespaces": {
+          "s": "https://schema.org/"
+        },
+        "s:softwareVersion": "1.4.1",
+        "schemas": [
+          "http://schema.org/version/9.0/schemaorg-current-http.rdf"
+        ],
+        "s:codeRepository": {
+          "URL": "https://github.com/eoap/mastering-app-package.git"
+        },
+        "s:author": [
+          {
+            "class": "s:Person",
+            "s.name": "Jane Doe",
+            "s.email": "jane.doe@acme.earth",
+            "s.affiliation": "ACME"
+          }
+        ]
+      }  
 spec:
   # this is the Workflow throttling to avoid overloading the cluster
   # the configMap contains the number of concurrent Workflows allowed
@@ -30,9 +78,6 @@ spec:
           requests:
             storage: "{{ .Values.storageSize }}"
   volumes:
-    - name: usersettings-vol
-      secret:
-        secretName: user-settings
     - name: volume-input-schema
       configMap:
         name: app-package-input-schema-water-bodies-1-0-0
@@ -53,6 +98,17 @@ spec:
         optional: false
 
   entrypoint: main
+  metrics:
+    prometheus:
+      - name: duration_gauge
+        labels:
+          - key: name
+            value: workflow
+        help: "Duration gauge by name"
+        gauge:
+          realtime: true                  # This metric will be emitted in real time. For more info see: docs/metrics.md
+          value: {{ `"{{workflow.duration}}"` }}  
+
   parameters:
   - name: items
     value: "['https://earth-search.aws.element84.com/v0/collections/sentinel-s2-l2a-cogs/items/S2A_10TFK_20210708_0_L2A']"

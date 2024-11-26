@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: WorkflowTemplate
 metadata:
-  name: argo-cwl-runner
+  name: argo-cwl-runner-stage-in-out
   annotations:
     workflows.argoproj.io/version: ">= v3.3.0"
     workflows.argoproj.io/description: |
@@ -26,14 +26,14 @@ spec:
   synchronization:
     semaphore:
       configMapKeyRef:
-        name: semaphore-argo-cwl-runner
+        name: semaphore-argo-cwl-runner-stage-in-out
         key: workflow
 
   # volumes 
   volumes:
   - name: usersettings-vol
     secret:
-      secretName: user-settings
+      secretName: user-settings-stage-in-out
   - name: calrissian-wdir
     persistentVolumeClaim:
       claimName: calrissian-wdir
@@ -45,6 +45,8 @@ spec:
         - key: rules.yaml
         - key: stage-in.cwl
         - key: stage-out.cwl
+
+
   # Workflow templates are used to define the Workflow steps
   templates:
   - name: calrissian-runner
@@ -76,7 +78,7 @@ spec:
             parameter: {{ `"{{steps.get-results.outputs.parameters.calrissian-report}}"` }}
         - name: stac-catalog
           valueFrom:
-            parameter: {{ `"{{steps.stage-out.outputs.parameters.stac-catalog}}"` }}
+            parameter: {{ `"{{steps.get-results.outputs.parameters.stac-catalog}}"` }}
         - name: feature-collection
           valueFrom:
             parameter: {{ `"{{steps.feature-collection.outputs.parameters.feature-collection}}"` }}
@@ -113,8 +115,6 @@ spec:
               value: {{ `"{{inputs.parameters.max_cores}}"` }}
 
       - - name: get-results
-        # these can run in parallel
-        # the same template is used for all the steps
           template: get-results
           arguments:
             parameters:
@@ -124,24 +124,13 @@ spec:
               value: "/calrissian/stderr.log"
             - name: calrissian-report
               value: "/calrissian/report.json"
-
-        - name: stage-out
-          template: stage-out
-          arguments:
-            parameters:
-            - name: file_path
-              value: "/calrissian/output.json"
-            - name: bucket
-              value: "results"
-            - name: folder
-              value: {{ `"{{workflow.name}}-{{workflow.uid}}"` }}
         
       - - name: feature-collection
           template: feature-collection
           arguments:
             parameters:
             - name: stac-catalog
-              value: {{ `"{{steps.stage-out.outputs.parameters.stac-catalog}}"` }}
+              value: {{ `"{{steps.get-results.outputs.parameters.stac-catalog}}"` }}
             
     
   - name: cwl-prepare
@@ -153,7 +142,7 @@ spec:
       - name: parameters
 
     script:
-      image: busybox:1.35.0
+      image: {{ .Values.cwlwrapperImage }}
       resources:
         requests:
           memory: 1Gi
@@ -161,15 +150,25 @@ spec:
       volumeMounts:
       - name: calrissian-wdir 
         mountPath: /calrissian
+      - name: cwl-wrapper-config-vol
+        mountPath: /cwl-wrapper-config
       env: []
-      command: [ash]
+      command: [bash]
       source: |
-        #!/bin/ash
+        #!/bin/bash
         
-        echo {{ `'{{inputs.parameters.cwl}}'` }}  >> /calrissian/cwl.json
+        echo {{ `'{{inputs.parameters.cwl}}'` }}  >> /tmp/cwl.json
+
+        cwl-wrapper --stagein /cwl-wrapper-config/stage-in.cwl \
+                    --stageout /cwl-wrapper-config/stage-out.cwl \
+                    --maincwl /cwl-wrapper-config/main.yaml \
+                    --rulez /cwl-wrapper-config/rules.yaml \
+                    /tmp/cwl.json > /calrissian/wrapped.cwl
+
+
         echo {{ `'{{inputs.parameters.parameters}}'` }}  >> /calrissian/input.json
         echo "CWL and input files created"
-        cat /calrissian/cwl.json
+        cat /calrissian/wrapped.cwl
         echo "CWL parameters"
         cat /calrissian/input.json
         
@@ -196,9 +195,9 @@ spec:
         apiVersion: batch/v1
         kind: Job
         metadata:
-          generateName: calrissian-water-bodies-detection-
+          generateName: calrissian-execution-
         spec:
-          backoffLimit: 1
+          backoffLimit: 3
           activeDeadlineSeconds: 86400
           ttlSecondsAfterFinished: 120
           template:
@@ -232,7 +231,7 @@ spec:
                   - /calrissian/results/
                   - --tool-logs-basepath 
                   - /calrissian/logs
-                  - "/calrissian/cwl.json#{{ `{{inputs.parameters.entry_point}}` }}"
+                  - "/calrissian/wrapped.cwl#wrapped"
                   - "/calrissian/input.json"
                   env:
                     - name: CALRISSIAN_POD_NAME
@@ -240,7 +239,7 @@ spec:
                         fieldRef:
                           fieldPath: metadata.name
                     - name: CALRISSIAN_DELETE_PODS
-                      value: "true"
+                      value: "false"
                   resources:
                     limits:
                       cpu: 2000m
@@ -291,6 +290,9 @@ spec:
         - name: calrissian-report
           valueFrom:
             path: /tmp/calrissian-report.json
+        - name: stac-catalog
+          valueFrom:
+            path: /tmp/stac-catalog.txt
       artifacts:
         - name: tool-logs
           path: /calrissian/logs
@@ -311,7 +313,7 @@ spec:
           s3:
             key: {{ `"{{workflow.name}}-{{workflow.uid}}-artifacts/calrissian-report.tgz"` }}
     script:
-      image: busybox:1.35.0
+      image: {{ .Values.stageOutImage }}
       resources:
         requests:
           memory: 1Gi
@@ -319,12 +321,13 @@ spec:
       volumeMounts:
       - name: calrissian-wdir
         mountPath: /calrissian
-      command: [ash]
+      command: [bash]
       source: |
-        #!/bin/ash
+        #!/bin/bash
         cat "{{"{{inputs.parameters.calrissian-output}}"}}" > /tmp/calrissian-output.json
         cat "{{"{{inputs.parameters.calrissian-stderr}}"}}" > /tmp/calrissian-stderr.txt
         cat "{{"{{inputs.parameters.calrissian-report}}"}}" > /tmp/calrissian-report.json
+        cat "{{"{{inputs.parameters.calrissian-output}}"}}" | jq -r .s3_catalog_output - > /tmp/stac-catalog.txt
 
   - name: stage-out
     inputs: 

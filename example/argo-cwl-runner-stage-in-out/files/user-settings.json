@@ -1,0 +1,15 @@
+{
+    "S3": {
+        "Services": {
+            "results": {
+                "UrlPattern": "s3:\/\/results\/.*",
+                "Region": "it-rom",
+                "AuthenticationRegion": "it-rom",
+                "AccessKey": "minio-admin",
+                "SecretKey": "minio-admin",
+                "ServiceURL": "http://minio.ns1.svc.cluster.local:9000",
+                "ForcePathStyle": "true"
+            }
+        }
+    }
+}

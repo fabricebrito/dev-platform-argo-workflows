@@ -1,0 +1,11 @@
+stageOutImage: stageout
+semaphore: 3  
+
+wrapper:
+  rules: {}
+  main: {}
+  stageIn: {}
+  stageOut: {}
+
+cwlwrapperImage: eoepca/cwl-wrapper@sha256:02f4a84d7cfdb7035cd6d58c1d9fca3f9c5e24bf2a1ea577312297f2c42574bd
+

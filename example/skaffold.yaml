@@ -25,6 +25,14 @@ deploy:
         setFiles: {
           userSettings: ./argo-cwl-runner/files/user-settings.json
         }
+      - name: argo-cwl-runner-stage-in-out
+        chartPath: argo-cwl-runner-stage-in-out
+        namespace: ns1
+        valuesFiles:
+          - argo-cwl-runner-stage-in-out/values.yaml
+        setFiles: {
+          userSettings: ./argo-cwl-runner-stage-in-out/files/user-settings.json
+        }
       - name: argo-water-bodies
         chartPath: argo-water-bodies
         namespace: ns1

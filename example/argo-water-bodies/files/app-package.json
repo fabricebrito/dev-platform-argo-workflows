@@ -99,19 +99,23 @@
       "inputs": {
         "aoi": {
           "doc": "area of interest as a bounding box",
+          "label": "area of interest",
           "type": "string"
         },
         "epsg": {
           "doc": "EPSG code",
+          "label": "EPSG code",
           "type": "string",
           "default": "EPSG:4326"
         },
         "bands": {
           "doc": "bands used for the NDWI",
+          "label": "bands used for the NDWI",
           "type": "string[]"
         },
         "item": {
           "doc": "STAC item",
+          "label": "STAC item",
           "type": "string"
         }
       },
