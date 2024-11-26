@@ -239,7 +239,7 @@ spec:
                         fieldRef:
                           fieldPath: metadata.name
                     - name: CALRISSIAN_DELETE_PODS
-                      value: "false"
+                      value: "true"
                   resources:
                     limits:
                       cpu: 2000m
