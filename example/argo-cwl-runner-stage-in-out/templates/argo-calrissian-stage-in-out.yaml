@@ -69,28 +69,32 @@ spec:
       parameters:
         - name: results
           valueFrom:
-            parameter: {{ `"{{steps.get-results.outputs.parameters.calrissian-output}}"` }}
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.parameters['calrissian-output'] : 'null'"` }}
         - name: log
           valueFrom:
-            parameter: {{ `"{{steps.get-results.outputs.parameters.calrissian-stderr}}"` }}
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.parameters['calrissian-stderr'] : steps['get-results-on-failure'].outputs.parameters['calrissian-stderr']"` }}    
         - name: usage-report
           valueFrom:
-            parameter: {{ `"{{steps.get-results.outputs.parameters.calrissian-report}}"` }}
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.parameters['calrissian-report']: steps['get-results-on-failure'].outputs.parameters['calrissian-report']"` }}
         - name: stac-catalog
           valueFrom:
-            parameter: {{ `"{{steps.get-results.outputs.parameters.stac-catalog}}"` }}
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.parameters['stac-catalog'] : 'null'"` }}
         - name: feature-collection
           valueFrom:
-            parameter: {{ `"{{steps.feature-collection.outputs.parameters.feature-collection}}"` }}
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['feature-collection'].outputs.parameters['feature-collection'] : 'null'"` }}
+        - name: outcome
+          valueFrom:
+            expression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.parameters['outcome']: steps['get-results-on-failure'].outputs.parameters['outcome']"` }}
       artifacts:
         - name: tool-logs
-          from: {{ `"{{steps.get-results.outputs.artifacts.tool-logs}}"` }}
+          fromExpression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.artifacts['tool-logs'] : steps['get-results-on-failure'].outputs.artifacts['tool-logs']"` }}
         - name: calrissian-output
-          from: {{ `"{{steps.get-results.outputs.artifacts.calrissian-output}}"` }}
+          fromExpression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.artifacts['calrissian-output'] : steps['get-results-on-failure'].outputs.artifacts['artifact-null']"` }}
         - name: calrissian-stderr
-          from: {{ `"{{steps.get-results.outputs.artifacts.calrissian-stderr}}"` }}
+          fromExpression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.artifacts['calrissian-stderr'] : steps['get-results-on-failure'].outputs.artifacts['calrissian-stderr']"` }}
         - name: calrissian-report
-          from: {{ `"{{steps.get-results.outputs.artifacts.calrissian-report}}"` }}
+          fromExpression: {{ `"steps['cwl-runner'].status == 'Succeeded' ? steps['get-results'].outputs.artifacts['calrissian-report'] : steps['get-results-on-failure'].outputs.artifacts['calrissian-report']"` }}
+
 
     steps:
       # Workflow steps are defined here
@@ -104,6 +108,8 @@ spec:
               value: {{ `"{{inputs.parameters.parameters}}"` }}
 
       - - name: cwl-runner
+          continueOn:
+            failed: true 
           template: calrissian-tmpl
           arguments:
             parameters:
@@ -115,6 +121,7 @@ spec:
               value: {{ `"{{inputs.parameters.max_cores}}"` }}
 
       - - name: get-results
+          when: "{{"{{steps.cwl-runner.status}}"}} == Succeeded"
           template: get-results
           arguments:
             parameters:
@@ -124,8 +131,21 @@ spec:
               value: "/calrissian/stderr.log"
             - name: calrissian-report
               value: "/calrissian/report.json"
-        
+
+      - - name: get-results-on-failure
+          when: "{{"{{steps.cwl-runner.status}}"}} == Failed"
+          template: get-results-on-failure
+          arguments:
+            parameters:
+            - name: calrissian-output
+              value: "/calrissian/output.json"
+            - name: calrissian-stderr
+              value: "/calrissian/stderr.log"
+            - name: calrissian-report
+              value: "/calrissian/report.json"
+
       - - name: feature-collection
+          when: "{{"{{steps.cwl-runner.status}}"}} == Succeeded"
           template: feature-collection
           arguments:
             parameters:
@@ -197,7 +217,7 @@ spec:
         metadata:
           generateName: calrissian-execution-
         spec:
-          backoffLimit: 3
+          backoffLimit: 0
           activeDeadlineSeconds: 86400
           ttlSecondsAfterFinished: 120
           template:
@@ -272,6 +292,78 @@ spec:
       parameters: []
       artifacts: []
 
+  - name: get-results-on-failure
+    inputs:
+      parameters:
+      - name: calrissian-output
+      - name: calrissian-stderr
+      - name: calrissian-report
+    outputs:
+      parameters:
+        - name: calrissian-stderr
+          valueFrom:
+            path: /tmp/calrissian-stderr.txt
+        - name: calrissian-report
+          valueFrom:
+            path: /tmp/calrissian-report.json
+        - name: outcome
+          valueFrom:
+            path: /tmp/outcome
+      artifacts: 
+        - name: tool-logs
+          path: /calrissian/logs
+          archive:
+            none: {}
+          s3:
+            key: {{ `"{{workflow.name}}-{{workflow.uid}}-artifacts/tool-logs"` }}
+        - name: calrissian-stderr
+          path: /tmp/calrissian-stderr.txt
+          s3:
+            key: {{ `"{{workflow.name}}-{{workflow.uid}}-artifacts/calrissian-stderr.tgz"` }}
+        - name: calrissian-report 
+          path: /tmp/calrissian-report.json
+          s3:
+            key: {{ `"{{workflow.name}}-{{workflow.uid}}-artifacts/calrissian-report.tgz"` }}
+        - name: artifact-null
+          path: /tmp/null
+          s3:
+            key: {{ `"{{workflow.name}}-{{workflow.uid}}-artifacts/null.tgz"` }}
+    script:
+      image: {{ .Values.stageOutImage }}
+      resources:
+        requests:
+          memory: 1Gi
+          cpu: 1
+      volumeMounts:
+      - name: calrissian-wdir
+        mountPath: /calrissian
+      command: [bash]
+      source: |
+        #!/bin/bash
+
+        set -x 
+        ls -l /calrissian/logs
+
+        mkdir -p /calrissian/logs
+        if [ -z "$( ls -A '/calrissian/logs' )" ]; then
+          echo "null" > /calrissian/logs/null
+        fi
+
+        ls -l /calrissian
+
+        cat "{{"{{inputs.parameters.calrissian-stderr}}"}}" > /tmp/calrissian-stderr.txt
+        
+        if [ -f "{{"{{inputs.parameters.calrissian-report}}"}}" ]; then
+          cat "{{"{{inputs.parameters.calrissian-report}}"}}" > /tmp/calrissian-report.json
+        else
+          echo "null" > /tmp/calrissian-report.json
+        fi 
+        
+        # null artifact
+        echo "null" > /tmp/null
+
+        echo "failure" > /tmp/outcome
+
   - name: get-results
     # reads the files generated by Calrissian
     inputs:
@@ -293,6 +385,9 @@ spec:
         - name: stac-catalog
           valueFrom:
             path: /tmp/stac-catalog.txt
+        - name: outcome
+          valueFrom:
+            path: /tmp/outcome
       artifacts:
         - name: tool-logs
           path: /calrissian/logs
@@ -328,44 +423,7 @@ spec:
         cat "{{"{{inputs.parameters.calrissian-stderr}}"}}" > /tmp/calrissian-stderr.txt
         cat "{{"{{inputs.parameters.calrissian-report}}"}}" > /tmp/calrissian-report.json
         cat "{{"{{inputs.parameters.calrissian-output}}"}}" | jq -r .s3_catalog_output - > /tmp/stac-catalog.txt
-
-  - name: stage-out
-    inputs: 
-      parameters:
-      - name: file_path
-      - name: bucket
-      - name: folder
-    outputs:
-      parameters:
-        - name: stac-catalog
-          valueFrom:
-            path: /tmp/output
-    script:
-      image: {{ .Values.stageOutImage }}
-      resources:
-        requests:
-          memory: 1Gi
-          cpu: 1
-      volumeMounts:
-      - name: calrissian-wdir
-        mountPath: /calrissian
-      - name: usersettings-vol
-        readOnly: true
-        mountPath: "/etc/secret"
-      command: [bash]
-      source: 
-        #!/bin/bash
-        set -x
-
-        cat /etc/secret/usersettings.json
-
-        stage-out --stac-catalog $( cat {{"{{inputs.parameters.file_path}}"}} | jq -r .stac_catalog.path - ) --user-settings /etc/secret/usersettings.json --bucket "{{"{{inputs.parameters.bucket}}"}}" --subfolder "{{"{{inputs.parameters.folder}}"}}"
-
-        res=$?
-
-        echo "s3://{{"{{inputs.parameters.bucket}}"}}/{{"{{inputs.parameters.folder}}"}}/catalog.json" > /tmp/output
-
-        exit $res
+        echo "succeeded" > /tmp/outcome
 
   - name: feature-collection
     inputs: 
